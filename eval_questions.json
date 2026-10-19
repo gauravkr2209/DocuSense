@@ -1,0 +1,72 @@
+[
+  {
+    "question": "What BLEU score did the Transformer achieve on the WMT 2014 English-to-German task?",
+    "type": "answerable",
+    "evidence": ["28.4"],
+    "answer_contains": ["28.4"]
+  },
+  {
+    "question": "What BLEU score did the Transformer achieve on the English-to-French task?",
+    "type": "answerable",
+   "evidence": ["41.8", "41.0"],
+   "answer_contains": ["41.8", "41.0"]
+  },
+  {
+    "question": "How many sentence pairs were in the English-German training dataset?",
+    "type": "answerable",
+    "evidence": ["4.5 million"],
+    "answer_contains": ["4.5 million", "4.5M", "4,500,000"]
+  },
+  {
+    "question": "What hardware was the model trained on?",
+    "type": "answerable",
+    "evidence": ["P100"],
+    "answer_contains": ["P100"]
+  },
+  {
+    "question": "What value of label smoothing was used during training?",
+    "type": "answerable",
+    "evidence": ["label smoothing"],
+    "answer_contains": ["0.1"]
+  },
+  {
+    "question": "Which optimizer did the authors use?",
+    "type": "answerable",
+    "evidence": ["Adam"],
+    "answer_contains": ["Adam"]
+  },
+  {
+    "question": "How many attention heads does the base model use?",
+    "type": "answerable",
+    "evidence": ["parallel attention layers", "h = 8"],
+    "answer_contains": ["8 parallel", "eight", "h = 8", "8 heads", "8 attention"]
+  },
+  {
+    "question": "Which functions are used for the positional encodings?",
+    "type": "answerable",
+    "evidence": ["sine and cosine", "sinusoid"],
+    "answer_contains": ["sine", "cosine", "sinusoid"]
+  },
+  {
+    "question": "How long did the big model take to train?",
+    "type": "answerable",
+    "evidence": ["3.5 days"],
+    "answer_contains": ["3.5 days", "3.5"]
+  },
+  {
+    "question": "What is the capital of France?",
+    "type": "unanswerable"
+  },
+  {
+    "question": "Who is the CEO of Google?",
+    "type": "unanswerable"
+  },
+  {
+    "question": "What BLEU score did the model get on English-to-Spanish translation?",
+    "type": "unanswerable"
+  },
+  {
+    "question": "Which medical imaging dataset was used for evaluation?",
+    "type": "unanswerable"
+  }
+]

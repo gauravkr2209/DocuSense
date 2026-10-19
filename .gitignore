@@ -1,0 +1,6 @@
+.venv/
+.pip_cache/
+ollama_models/
+chroma_db/
+data/
+__pycache__/
