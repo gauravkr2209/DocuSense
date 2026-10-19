@@ -1,4 +1,4 @@
-﻿langchain-core
+langchain-core
 langchain-chroma
 langchain-ollama
 langchain-text-splitters
