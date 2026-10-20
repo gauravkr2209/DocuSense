@@ -212,6 +212,8 @@ To re-run: put a PDF in `data/`, index it, edit `eval_questions.json` to match i
 - **Gemini mode:** document text and questions are sent to Google's API. Do not use real student work with the free tier.
 - Uploaded files, indexes and summaries are stored under `data/` and `chroma_db/`, and API keys in `.streamlit/secrets.toml`. All three are excluded from Git.
 
+**[Live demo](https://docsenseprojecta.streamlit.app/)** (Gemini free tier, demo document only)
+
 ## Author
 
 **Gaurav Kumar**
