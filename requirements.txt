@@ -1,6 +1,7 @@
 langchain-core
 langchain-chroma
 langchain-ollama
+langchain-google-genai
 langchain-text-splitters
 chromadb
 pypdf

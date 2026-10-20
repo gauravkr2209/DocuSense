@@ -4,3 +4,4 @@ ollama_models/
 chroma_db/
 data/
 __pycache__/
+.streamlit/secrets.toml

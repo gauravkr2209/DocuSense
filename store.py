@@ -79,8 +79,11 @@ def make_record(
     source_file: str,
     file_hash: str,
     result: Dict[str, object],
+    provider: Optional[str] = None,
 ) -> Record:
-    """Build a registry entry from an ingest_pdf() result."""
+    """Build a registry entry from an ingest_pdf() result. The provider
+    records which model indexed the document, because embeddings from
+    different providers cannot be mixed."""
     return {
         "collection_name": result["collection_name"],
         "document_id": result["document_id"],
@@ -90,9 +93,9 @@ def make_record(
         "file_hash": file_hash,
         "pages": result["pages"],
         "chunks": result["chunks"],
+        "provider": provider or str(result.get("provider", "ollama")),
         "created": datetime.now().isoformat(timespec="seconds"),
     }
-
 
 def label(record: Record) -> str:
     """Text shown in the document picker."""

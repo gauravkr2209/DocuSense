@@ -1,4 +1,4 @@
-"""Map-reduce summary engine for DocuSense (Phase 3)."""
+"""Map-reduce summary engine for DocuSense (provider-aware)."""
 import math
 import re
 import sys
@@ -8,10 +8,16 @@ from typing import Callable, Dict, List, Optional
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_ollama import ChatOllama
 
 import config
-from ingest import get_embeddings
+from providers import (
+    explain_error,
+    get_chat_model,
+    get_embeddings,
+    missing_key_message,
+    provider_ready,
+    text_of,
+)
 
 NOT_STATED = "Not stated in the document."
 
@@ -79,7 +85,7 @@ class SummaryError(Exception):
     """Raised when a summary cannot be produced."""
 
 
-# ---------- helpers (tested without Ollama) ----------
+# ---------- helpers (tested without a model) ----------
 
 def load_chunks(store: Chroma) -> List[Document]:
     """Read every chunk of the collection, ordered by page."""
@@ -215,8 +221,8 @@ def summarize_collection(
     say = progress or (lambda message: None)
     started = time.time()
 
-    if config.CHAT_PROVIDER != "ollama":
-        raise SummaryError(f"Unsupported chat provider: {config.CHAT_PROVIDER}")
+    if not provider_ready():
+        raise SummaryError(missing_key_message())
 
     try:
         store = Chroma(
@@ -226,7 +232,9 @@ def summarize_collection(
         )
         chunks = load_chunks(store)
     except Exception as exc:
-        raise SummaryError(f"Could not open the document store: {exc}") from exc
+        raise SummaryError(
+            explain_error(exc, "Could not open the document store.")
+        ) from exc
 
     if not chunks:
         raise SummaryError(
@@ -242,32 +250,24 @@ def summarize_collection(
     )
     groups = pick_groups(all_groups, config.SUMMARY_MAX_GROUPS)
 
-    llm = ChatOllama(
-        model=config.CHAT_MODEL,
-        base_url=config.OLLAMA_BASE_URL,
-        temperature=0,
-        num_ctx=config.SUMMARY_NUM_CTX,
-        num_predict=350,
-    )
-    final_llm = ChatOllama(
-        model=config.CHAT_MODEL,
-        base_url=config.OLLAMA_BASE_URL,
-        temperature=0,
-        num_ctx=config.SUMMARY_NUM_CTX,
-        num_predict=900,
-    )
+    try:
+        llm = get_chat_model(max_output_tokens=350, num_ctx=config.SUMMARY_NUM_CTX)
+        final_llm = get_chat_model(max_output_tokens=900, num_ctx=config.SUMMARY_NUM_CTX)
+    except Exception as exc:
+        raise SummaryError(
+            explain_error(exc, "Could not start the chat model.")
+        ) from exc
 
-    def call(model: ChatOllama, system: str, human: str) -> str:
+    def call(model, system: str, human: str) -> str:
         try:
             reply = model.invoke(
                 [SystemMessage(content=system), HumanMessage(content=human)]
             )
         except Exception as exc:
             raise SummaryError(
-                "The chat model failed. Is Ollama running and is "
-                f"'{config.CHAT_MODEL}' pulled? Details: {exc}"
+                explain_error(exc, "The chat model failed.")
             ) from exc
-        text = str(reply.content).strip()
+        text = text_of(reply)
         if not text:
             raise SummaryError("The model returned an empty reply.")
         return text

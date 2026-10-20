@@ -1,4 +1,4 @@
-"""Grounded Q&A engine for DocuSense (Phase 2, hardened)."""
+"""Grounded Q&A engine for DocuSense (provider-aware)."""
 import re
 import sys
 from typing import Callable, Dict, List, Optional, Tuple
@@ -6,10 +6,16 @@ from typing import Callable, Dict, List, Optional, Tuple
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_ollama import ChatOllama
 
 import config
-from ingest import get_embeddings
+from providers import (
+    explain_error,
+    get_chat_model,
+    get_embeddings,
+    missing_key_message,
+    provider_ready,
+    text_of,
+)
 
 NOT_FOUND = "I could not find that in the document."
 MAX_HISTORY_TURNS = 3
@@ -145,6 +151,9 @@ class DocumentQA:
         self.collection_name = collection_name
         self.history: List[Tuple[str, str]] = []
 
+        if not provider_ready():
+            raise QAError(missing_key_message())
+
         try:
             self.store = Chroma(
                 collection_name=collection_name,
@@ -153,7 +162,9 @@ class DocumentQA:
             )
             count = self.store._collection.count()
         except Exception as exc:
-            raise QAError(f"Could not open the document store: {exc}") from exc
+            raise QAError(
+                explain_error(exc, "Could not open the document store.")
+            ) from exc
 
         if count == 0:
             raise QAError(
@@ -161,13 +172,12 @@ class DocumentQA:
                 "Check the name or ingest the PDF again."
             )
 
-        if config.CHAT_PROVIDER != "ollama":
-            raise QAError(f"Unsupported chat provider: {config.CHAT_PROVIDER}")
-        self.llm = ChatOllama(
-            model=config.CHAT_MODEL,
-            base_url=config.OLLAMA_BASE_URL,
-            temperature=0,
-        )
+        try:
+            self.llm = get_chat_model()
+        except Exception as exc:
+            raise QAError(
+                explain_error(exc, "Could not start the chat model.")
+            ) from exc
 
     def _retrieve(self, question: str) -> List[Document]:
         """Find the most relevant chunks. For follow-ups, include the
@@ -181,8 +191,7 @@ class DocumentQA:
             )
         except Exception as exc:
             raise QAError(
-                "Retrieval failed. Is Ollama running and is "
-                f"'{config.EMBEDDING_MODEL}' pulled? Details: {exc}"
+                explain_error(exc, "Retrieval failed.")
             ) from exc
 
     def ask(
@@ -190,7 +199,7 @@ class DocumentQA:
         question: str,
         on_stage: Optional[Callable[[str], None]] = None,
     ) -> Dict[str, object]:
-        """Return {'answer', 'pages', 'found', 'cited', 'unverified'}.
+        """Return {'answer', 'pages', 'found', 'cited', 'unverified', 'model'}.
 
         on_stage is called with "search" before retrieval and "write"
         before the model answers, so an interface can show progress.
@@ -200,6 +209,7 @@ class DocumentQA:
         cited=False     -> pages are only the best-matching retrieved pages.
         unverified      -> numbers in the answer that are not in the
                            retrieved text (check them in the document).
+        model           -> the chat model that wrote the answer.
         """
         notify = on_stage or (lambda stage: None)
         question = question.strip()
@@ -224,11 +234,10 @@ class DocumentQA:
             )
         except Exception as exc:
             raise QAError(
-                "The chat model failed. Is Ollama running and is "
-                f"'{config.CHAT_MODEL}' pulled? Details: {exc}"
+                explain_error(exc, "The chat model failed.")
             ) from exc
 
-        raw = str(reply.content).strip()
+        raw = text_of(reply)
         found = not is_not_found(raw)
         cited = False
         unverified: List[str] = []
@@ -262,6 +271,7 @@ class DocumentQA:
             "found": found,
             "cited": cited,
             "unverified": unverified,
+            "model": getattr(self.llm, "last_model", ""),
         }
 
 
@@ -298,4 +308,6 @@ if __name__ == "__main__":
                 "WARNING: not found in the retrieved text, check the "
                 f"document: {', '.join(result['unverified'])}"
             )
+        if result["model"]:
+            print(f"Answered by: {result['model']}")
         print()

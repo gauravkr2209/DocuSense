@@ -1,4 +1,4 @@
-"""PDF ingestion pipeline for DocuSense (Phase 1)."""
+"""PDF ingestion pipeline for DocuSense (provider-aware)."""
 import re
 import sys
 import uuid
@@ -7,11 +7,16 @@ from typing import Dict, List
 
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
-from langchain_ollama import OllamaEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pypdf import PdfReader
 
 import config
+from providers import (
+    explain_error,
+    missing_key_message,
+    provider_ready,
+)
+from providers import get_embeddings as build_embeddings
 
 
 class IngestionError(Exception):
@@ -61,7 +66,7 @@ def load_pdf(pdf_path: str) -> List[Document]:
     if not documents:
         raise IngestionError(
             "No extractable text was found. The PDF may be empty or "
-            "scanned. OCR is not implemented in Phase 1."
+            "scanned. OCR is not implemented."
         )
     return documents
 
@@ -80,16 +85,16 @@ def split_documents(documents: List[Document]) -> List[Document]:
     return chunks
 
 
-def get_embeddings() -> OllamaEmbeddings:
-    """Create the configured Ollama embedding model."""
-    if config.EMBEDDING_PROVIDER != "ollama":
+def get_embeddings():
+    """Embedding model for the active provider."""
+    if not provider_ready():
+        raise IngestionError(missing_key_message())
+    try:
+        return build_embeddings()
+    except Exception as exc:
         raise IngestionError(
-            f"Unsupported embedding provider: {config.EMBEDDING_PROVIDER}"
-        )
-    return OllamaEmbeddings(
-        model=config.EMBEDDING_MODEL,
-        base_url=config.OLLAMA_BASE_URL,
-    )
+            explain_error(exc, "Could not start the embedding model.")
+        ) from exc
 
 
 def make_collection_name(pdf_name: str, doc_id: str) -> str:
@@ -114,10 +119,11 @@ def ingest_pdf(pdf_path: str) -> Dict[str, object]:
             persist_directory=str(config.CHROMA_DIR),
         )
         vector_count = store._collection.count()
+    except IngestionError:
+        raise
     except Exception as exc:
         raise IngestionError(
-            "Embedding or storage failed. Is Ollama running and is "
-            f"'{config.EMBEDDING_MODEL}' pulled? Details: {exc}"
+            explain_error(exc, "Embedding or storage failed.")
         ) from exc
 
     return {
@@ -126,6 +132,7 @@ def ingest_pdf(pdf_path: str) -> Dict[str, object]:
         "pages": len(documents),
         "chunks": len(chunks),
         "vectors": vector_count,
+        "provider": config.PROVIDER,
     }
 
 

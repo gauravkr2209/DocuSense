@@ -209,24 +209,22 @@ def truncate(text: object, limit: int = 34) -> str:
     return value[: limit - 1].rstrip() + "…"
 
 
-def status_pill(ok: bool) -> str:
-    if ok:
-        return (
-            '<span class="ds-pill ds-ok"><span class="ds-dot"></span>'
-            "Ollama running</span>"
-        )
+def status_pill(ok: bool, label: "str | None" = None) -> str:
+    if label is None:
+        label = "Ollama running" if ok else "Ollama not running"
+    cls = "ds-ok" if ok else "ds-bad"
     return (
-        '<span class="ds-pill ds-bad"><span class="ds-dot"></span>'
-        "Ollama not running</span>"
+        f'<span class="ds-pill {cls}"><span class="ds-dot"></span>'
+        f"{esc(label)}</span>"
     )
 
 
-def topbar(title: str, tagline: str, ollama_ok: bool) -> str:
+def topbar(title: str, tagline: str, ollama_ok: bool, label: "str | None" = None) -> str:
     return (
         '<div class="ds-topbar"><div>'
         f'<div class="ds-brand">📄 {esc(title)}</div>'
         f'<div class="ds-tag">{esc(tagline)}</div></div>'
-        f"{status_pill(ollama_ok)}</div>"
+        f"{status_pill(ollama_ok, label)}</div>"
     )
 
 
@@ -282,11 +280,13 @@ def sidebar_label(text: str, count: object = None) -> str:
     return f'<div class="ds-sb-label"><span>{esc(text)}</span>{badge}</div>'
 
 
-def sidebar_footer() -> str:
-    return (
-        '<div class="ds-sb-foot">🔒 Runs locally. No document leaves '
-        "this computer.</div>"
+def sidebar_footer(local: bool = True) -> str:
+    text = (
+        "🔒 Runs locally. No document leaves this computer."
+        if local
+        else "☁️ Answers use Google Gemini on the free tier. Use only non-sensitive documents."
     )
+    return f'<div class="ds-sb-foot">{text}</div>'
 
 def notice(text: str) -> str:
     return f'<div class="ds-notice">{esc(text)}</div>'
